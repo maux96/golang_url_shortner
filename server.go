@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"strings"
 )
 
 type URLTransformer interface {
@@ -19,7 +20,7 @@ func StartServer(urlTransformer URLTransformer) (err error) {
 		log.Fatalf("An error ocurred related to parsing the templates.\n%s", err.Error())
 	}
 
-	http.HandleFunc("/", func(rw http.ResponseWriter, request *http.Request) {
+	http.HandleFunc("GET /", func(rw http.ResponseWriter, request *http.Request) {
 		// http.ServeFile(rw, request, "converterTemplate.html")
 		err = convHtmlTemp.Execute(rw, nil)
 		if err != nil {
@@ -32,13 +33,28 @@ func StartServer(urlTransformer URLTransformer) (err error) {
 		urlToEncode := req.PostForm.Get("url")
 
 		ctx := map[string]string{
-			"urlCode": fmt.Sprintf("https://%s/%s", req.Host, urlTransformer.SaveUrl(urlToEncode)),
+			"urlCode": fmt.Sprintf("http://%s/%s", req.Host, urlTransformer.SaveUrl(urlToEncode)),
 		}
 		log.Printf("%s-->%s", urlToEncode, ctx["urlCode"])
 
 		err = convHtmlTemp.Execute(rw, ctx)
 		if err != nil {
 			log.Fatalf("An error ocurred related to execute the template.\n%s", err.Error())
+		}
+	})
+
+	http.HandleFunc("GET /{code}", func(rw http.ResponseWriter, req *http.Request) {
+		urlCode := req.PathValue("code")
+
+		originalUrl, err := urlTransformer.GetUrl(urlCode)
+		if !strings.HasPrefix(originalUrl, "https://") && !strings.HasPrefix(originalUrl, "http://") {
+			originalUrl = "https://" + originalUrl
+		}
+
+		if err != nil {
+			rw.WriteHeader(404)
+		} else {
+			http.Redirect(rw, req, originalUrl, http.StatusSeeOther)
 		}
 	})
 
