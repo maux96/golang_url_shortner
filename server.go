@@ -9,7 +9,7 @@ import (
 )
 
 type URLTransformer interface {
-	SaveUrl(string) string
+	SaveUrl(string) (string, error)
 	GetUrl(string) (string, error)
 }
 
@@ -32,14 +32,23 @@ func StartServer(urlTransformer URLTransformer) (err error) {
 		req.ParseForm()
 		urlToEncode := req.PostForm.Get("url")
 
-		ctx := map[string]string{
-			"urlCode": fmt.Sprintf("http://%s/%s", req.Host, urlTransformer.SaveUrl(urlToEncode)),
+		code, err := urlTransformer.SaveUrl(urlToEncode)
+		if err != nil {
+			log.Println(err.Error())
+			rw.WriteHeader(500)
+			return
 		}
-		log.Printf("%s-->%s", urlToEncode, ctx["urlCode"])
+
+		ctx := map[string]string{
+			"urlCode": fmt.Sprintf("http://%s/%s", req.Host, code),
+		}
+		log.Printf("%s --> %s", urlToEncode, ctx["urlCode"])
 
 		err = convHtmlTemp.Execute(rw, ctx)
 		if err != nil {
-			log.Fatalf("An error ocurred related to execute the template.\n%s", err.Error())
+			log.Println(err.Error())
+			rw.WriteHeader(500)
+			return
 		}
 	})
 
