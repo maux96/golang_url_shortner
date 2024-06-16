@@ -61,6 +61,7 @@ func StartServer(urlTransformer URLTransformer) (err error) {
 		}
 
 		if err != nil {
+			log.Println(err.Error())
 			rw.WriteHeader(404)
 		} else {
 			http.Redirect(rw, req, originalUrl, http.StatusSeeOther)

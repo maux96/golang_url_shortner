@@ -7,6 +7,6 @@ import (
 )
 
 func main() {
-	errorFromServer := StartServer(sqlUS.New("./test.db"))
+	errorFromServer := StartServer(sqlUS.New())
 	log.Println(errorFromServer.Error())
 }
