@@ -2,11 +2,16 @@ package main
 
 import (
 	"log"
-	sqlUS "url_shortner/sql_url_shortner"
-	// ust "url_shortner/test_url_shortner"
+	basicUrlShortner "url_shortner/basicUrlShortner"
+	sqliteContext "url_shortner/sqliteContext"
 )
 
 func main() {
-	errorFromServer := StartServer(sqlUS.New())
+	ctx, err := sqliteContext.New("test.db")
+	if err != nil {
+		log.Fatalln(err.Error())
+	}
+
+	errorFromServer := StartServer(basicUrlShortner.New(ctx))
 	log.Println(errorFromServer.Error())
 }

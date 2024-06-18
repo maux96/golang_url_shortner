@@ -1,7 +1,6 @@
-package SqlUrlShortner
+package BasicUrlShortner
 
 import (
-	"log"
 	"url_shortner/db"
 )
 
@@ -9,12 +8,7 @@ type BasicUrlShortner struct {
 	ctx db.DbContext
 }
 
-func New() *BasicUrlShortner {
-	ctx, err := NewSqliteCtx("test.db")
-	if err != nil {
-		log.Fatalf("Problem creating the sqlite db context (%s)", err.Error())
-	}
-
+func New(ctx db.DbContext) *BasicUrlShortner {
 	shortner := BasicUrlShortner{
 		ctx: ctx,
 	}

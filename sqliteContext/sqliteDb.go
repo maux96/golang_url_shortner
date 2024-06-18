@@ -1,4 +1,4 @@
-package SqlUrlShortner
+package SqliteContext
 
 import (
 	"database/sql"
@@ -14,7 +14,7 @@ type SqliteContext struct {
 	connectionString string
 }
 
-func NewSqliteCtx(connectionString string) (dbContext *SqliteContext, err error) {
+func New(connectionString string) (dbContext *SqliteContext, err error) {
 	shortner := &SqliteContext{
 		connectionString: connectionString,
 	}
