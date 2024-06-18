@@ -1,43 +1,32 @@
 package SqlUrlShortner
 
 import (
-	"fmt"
 	"log"
-	"strconv"
+	"url_shortner/db"
 )
 
-type SqlLiteUrlShortner struct {
-	ctx *SqliteContext
+type BasicUrlShortner struct {
+	ctx db.DbContext
 }
 
-func New() *SqlLiteUrlShortner {
+func New() *BasicUrlShortner {
 	ctx, err := NewSqliteCtx("test.db")
 	if err != nil {
 		log.Fatalf("Problem creating the sqlite db context (%s)", err.Error())
 	}
 
-	err = ctx.initDatabase()
-	if err != nil {
-		log.Fatalf("Problem creating the sqlite db context (%s)", err.Error())
-	}
-
-	shortner := SqlLiteUrlShortner{
+	shortner := BasicUrlShortner{
 		ctx: ctx,
 	}
 	return &shortner
 }
 
-func (urlShortner *SqlLiteUrlShortner) SaveUrl(url string) (urlCode string, err error) {
-	id, err := urlShortner.ctx.SaveUrl(url)
-	return fmt.Sprintf("%d", id), err
+func (urlShortner *BasicUrlShortner) SaveUrl(url string) (urlCode string, err error) {
+	return urlShortner.ctx.SaveUrl(url)
 }
 
-func (urlShortner *SqlLiteUrlShortner) GetUrl(code string) (str string, err error) {
-	id, err := strconv.ParseInt(code, 10, 64)
-	if err != nil {
-		return "", err
-	}
-	row, err := urlShortner.ctx.GetRow(id)
+func (urlShortner *BasicUrlShortner) GetUrl(code string) (str string, err error) {
+	row, err := urlShortner.ctx.GetRowFromCode(code)
 	if err != nil {
 		return "", err
 	}

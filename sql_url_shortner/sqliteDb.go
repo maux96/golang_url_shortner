@@ -3,6 +3,7 @@ package SqlUrlShortner
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 	"url_shortner/db"
 
@@ -30,6 +31,7 @@ func (sqlUrlShortner *SqliteContext) initDatabase() (err error) {
 	_, err = db.Exec(`
 		CREATE TABLE IF NOT EXISTS urls (
 			id				INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+			code			CHAR(255) NOT NULL UNIQUE,
 			url				TEXT NOT NULL,
 			lastTime	DATE
 		);
@@ -42,15 +44,15 @@ func (sqliteContext *SqliteContext) createDbConnection() (db *sql.DB, err error)
 	return sql.Open("sqlite3", sqliteContext.connectionString)
 }
 
-func (sqliteContext *SqliteContext) SaveUrl(url string) (id int64, err error) {
+func (sqliteContext *SqliteContext) SaveUrl(url string) (code string, err error) {
 	dbConn, err := sqliteContext.createDbConnection()
 	if err != nil {
-		return -1, err
+		return "", err
 	}
 	defer dbConn.Close()
 
 	result := dbConn.QueryRow(`
-		SELECT *
+		SELECT id, code, url, lastTime  
 		FROM urls
 		WHERE url == ?;
 	`, url)
@@ -58,22 +60,47 @@ func (sqliteContext *SqliteContext) SaveUrl(url string) (id int64, err error) {
 	var existingRow db.URLRow
 	errAtScan := result.Scan(
 		&existingRow.Id,
+		&existingRow.Code,
 		&existingRow.Url,
 		&existingRow.LastTime,
 	)
-
 	if errAtScan != nil {
-		result, err := dbConn.Exec(`INSERT INTO urls(url, lastTime) VALUES (?, ?);`, url, time.Now())
+		transCtx, err := dbConn.Begin()
 		if err != nil {
-			return -1, err
+			return "", errors.New("start transaction failed")
 		}
-		return result.LastInsertId()
+
+		result, err := transCtx.Exec(`INSERT INTO urls(url, code, lastTime) VALUES (?, ?, ?);`, url, code, time.Now())
+		if err != nil {
+			rollbackError := transCtx.Rollback()
+			return "", errors.Join(err, rollbackError)
+		}
+
+		id, err := result.LastInsertId()
+		if err != nil {
+			rollbackError := transCtx.Rollback()
+			return "", errors.Join(err, rollbackError)
+		}
+
+		// we set the code as the id for now
+		code = fmt.Sprintf("%d", id)
+		_, err = transCtx.Exec(`UPDATE urls SET code = ? WHERE id = ?;`, id, code)
+		if err != nil {
+			rollbackError := transCtx.Rollback()
+			return "", errors.Join(err, rollbackError)
+		}
+
+		err = transCtx.Commit()
+		if err != nil {
+			return "", err
+		}
+		return code, nil
 	}
 
-	return existingRow.Id, nil
+	return existingRow.Code, nil
 }
 
-func (sqliteContext *SqliteContext) GetRow(id int64) (row *db.URLRow, err error) {
+func (sqliteContext *SqliteContext) GetRowFromCode(code string) (row *db.URLRow, err error) {
 	dbConn, err := sqliteContext.createDbConnection()
 	if err != nil {
 		return nil, err
@@ -83,10 +110,10 @@ func (sqliteContext *SqliteContext) GetRow(id int64) (row *db.URLRow, err error)
 	result := dbConn.QueryRow(`
 		SELECT id, url, lastTime
 		FROM urls
-		WHERE id = ?;
-	`, id)
+		WHERE code = ?;
+	`, code)
 
-	var urlRow db.URLRow
+	urlRow := db.URLRow{Code: code}
 	errAtScan := result.Scan(
 		&urlRow.Id,
 		&urlRow.Url,
